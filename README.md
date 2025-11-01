@@ -2,6 +2,7 @@
 I’m brand new to GitHub, so please excuse me if things aren’t perfectly clear yet 😅
 
 💻 To start, I’m sharing with you:
+
 🔹 An HTML code to generate simple, secure, fast, and real-time QR codes :
 
 [link here](https://github.com/anonymousxptdr360/qr_code/blob/main/qr)
