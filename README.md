@@ -8,4 +8,4 @@ I’m brand new to GitHub, so please excuse me if things aren’t perfectly clea
 ✨ Feel free to use them — they’re free and open source !
 
 🌐 All these features are also available on my website:
-👉 qrcodesimple.odoo.com
+👉 [qrcodesimple.odoo.com](https://qrcodesimple.odoo.com)
