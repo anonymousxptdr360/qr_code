@@ -8,7 +8,7 @@ Before downloading, you can try the fully functional web version here:
 👉 **[Live Demo (Try it online)](https://qrcodesimple.odoo.com/)**
 
 If you want the complete, operational source code for the generator and reader:
-📦 **[Download Full Source Code (Releases)](https://github.com/anonymousxptdr360/qr_code/releases/tag/Main)**
+📦 **[Download Full Source Code (Releases)](https://github.com/anonymousxptdr360/qr_code/releases/tag/1.1)**
 
 ---
 
