@@ -9,10 +9,14 @@
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Librairies QR (Générateur & Scanner) -->
+    <!-- On garde qrcode-generator pour la génération -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+    <!-- jsPDF pour l'export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- html5-qrcode gardé uniquement pour le scan de fichier (plus robuste sur les fichiers statiques) -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-    <script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
+    <!-- jsQR : Le moteur ultra-rapide pour la caméra -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 
     <!-- Font Awesome pour les icônes -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -22,51 +26,65 @@
         body {
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
             background-color: #f3f4f6;
-            height: 100vh;
-            overflow: hidden; /* Empêche le scroll global, on gère par panneau */
+            min-height: 100vh;
+            overflow-x: hidden;
+            overflow-y: auto; 
         }
 
         /* Layout Principal */
         .app-container {
             display: flex;
             flex-direction: column;
-            height: 100%;
+            min-height: 100vh;
         }
 
+        /* --- STYLES DESKTOP (Écrans larges uniquement) --- */
         @media (min-width: 768px) {
+            body {
+                height: 100vh;
+                overflow: hidden;
+            }
+            
             .app-container {
                 flex-direction: row;
+                height: 100%;
+            }
+
+            .generator-panel {
+                flex: 0 0 450px;
+                border-right: 1px solid #e5e7eb;
+                border-bottom: none !important;
+                z-index: 10;
+                box-shadow: 4px 0 24px rgba(0,0,0,0.05);
+                height: 100%;
+                overflow-y: auto;
+            }
+
+            .scanner-panel {
+                flex: 1;
+                height: 100%;
+                overflow: hidden;
             }
         }
 
         /* --- COLONNE GAUCHE : GÉNÉRATEUR --- */
         .generator-panel {
-            flex: 1;
             background: white;
             display: flex;
             flex-direction: column;
             border-bottom: 1px solid #e5e7eb;
-            overflow-y: auto;
-        }
-
-        @media (min-width: 768px) {
-            .generator-panel {
-                flex: 0 0 450px; /* Largeur fixe sur desktop */
-                border-right: 1px solid #e5e7eb;
-                border-bottom: none;
-                z-index: 10;
-                box-shadow: 4px 0 24px rgba(0,0,0,0.05);
-            }
         }
 
         /* --- COLONNE DROITE : SCANNER --- */
         .scanner-panel {
-            flex: 1;
             background: #f8fafc;
             display: flex;
             flex-direction: column;
             position: relative;
-            overflow: hidden;
+            min-height: 500px; 
+            flex: 1;
+            /* FIX ODOO 1: Empêche le panneau de déborder de son parent */
+            overflow: hidden; 
         }
 
         /* Onglets Scanner */
@@ -76,6 +94,8 @@
             padding: 0.5rem;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             z-index: 20;
+            position: sticky;
+            top: 0;
         }
         .tab-btn {
             flex: 1;
@@ -100,19 +120,36 @@
             align-items: center;
             justify-content: center;
             background: #000;
+            overflow: hidden; /* Important pour contenir la vidéo */
+            min-height: 400px;
+        }
+
+        /* FIX ODOO 2: CONTRAINTES VIDÉO STRICTES */
+        #camera-view {
+            width: 100%;
+            height: 100%;
+            position: absolute; /* Force le layout absolu dans le viewport */
+            top: 0;
+            left: 0;
             overflow: hidden;
         }
 
-        /* Fix Caméra Plein Écran */
         #reader {
-            width: 100%;
-            height: 100%;
-            position: relative;
-        }
-        #reader video {
-            object-fit: cover !important;
             width: 100% !important;
             height: 100% !important;
+            position: relative;
+            overflow: hidden !important;
+        }
+        
+        /* Cible la vidéo native que nous allons injecter */
+        #reader video {
+            width: 100% !important;
+            height: 100% !important;
+            max-width: 100% !important;
+            max-height: 100% !important;
+            object-fit: cover !important; /* C'est la clé de la fluidité visuelle */
+            border-radius: 0 !important;
+            display: block;
         }
 
         /* Zone Drop Fichier */
@@ -137,6 +174,7 @@
         }
 
         /* --- RÉSULTAT SCAN (Flottant) --- */
+        /* FIX MOBILE: On ajoute visibility: hidden pour cacher le texte fantôme */
         .scan-result-overlay {
             position: absolute;
             bottom: 0;
@@ -147,12 +185,18 @@
             border-top-right-radius: 1.5rem;
             padding: 1.5rem;
             box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+            
             transform: translateY(100%);
-            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            visibility: hidden; /* C'est ça qui cache le texte "QR Détecté" quand fermé */
+            
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s 0.3s; /* Délai sur visibility pour l'animation de fermeture */
             z-index: 50;
         }
+        
         .scan-result-overlay.visible {
             transform: translateY(0);
+            visibility: visible; /* On rend visible uniquement quand c'est ouvert */
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s 0s;
         }
 
         /* --- QR DISPLAY --- */
@@ -161,7 +205,7 @@
             height: auto;
             border-radius: 0.5rem;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            image-rendering: pixelated; /* Netteté */
+            image-rendering: pixelated;
         }
 
         /* --- FULLSCREEN OVERLAY --- */
@@ -189,7 +233,7 @@
 <div class="app-container">
     
     <!-- ========================================== -->
-    <!-- PANNEAU GAUCHE : GÉNÉRATEUR -->
+    <!-- PANNEAU GAUCHE (HAUT sur mobile) : GÉNÉRATEUR -->
     <!-- ========================================== -->
     <div class="generator-panel p-6">
         <header class="mb-6">
@@ -237,15 +281,14 @@
             </button>
         </div>
         
-        <!-- Historique supprimé -->
     </div>
 
     <!-- ========================================== -->
-    <!-- PANNEAU DROITE : SCANNER -->
+    <!-- PANNEAU DROITE (BAS sur mobile) : SCANNER -->
     <!-- ========================================== -->
     <div class="scanner-panel">
         
-        <!-- Onglets (Ordre inversé : Fichier d'abord) -->
+        <!-- Onglets -->
         <div class="scanner-tabs">
             <div class="tab-btn active" onclick="setScannerMode('file')" id="tab-file">
                 <i class="fa-solid fa-file-import mr-2"></i>Fichier
@@ -258,17 +301,21 @@
         <!-- Viewport Scanner -->
         <div class="scanner-viewport">
             
-            <!-- Mode Caméra -->
-            <div id="camera-view" class="w-full h-full relative hidden">
-                <div id="reader"></div>
-                <!-- PAS D'OVERLAY VISUEL RESTRICTIF ICI -->
+            <!-- Mode Caméra : Structure modifiée pour JSQR et Fluidité -->
+            <div id="camera-view" class="hidden">
+                <div id="reader">
+                    <!-- Vidéo native pour la fluidité max -->
+                    <video id="scanVideo" playsinline muted autoplay></video>
+                    <!-- Canvas caché pour le processing jsQR -->
+                    <canvas id="scanCanvas" hidden></canvas>
+                </div>
                 
-                <!-- Message Permission -->
+                <!-- Message Permission / Erreur -->
                 <div id="camera-permission-msg" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-white p-6 text-center hidden z-50">
                     <i class="fa-solid fa-video-slash text-4xl mb-4 text-gray-500"></i>
                     <h3 class="font-bold text-lg mb-2">Caméra inactive</h3>
-                    <p class="text-sm text-gray-400 mb-4">Veuillez autoriser l'accès à la caméra pour scanner.</p>
-                    <button onclick="startCamera()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full font-medium transition">Activer la caméra</button>
+                    <p class="text-sm text-gray-400 mb-4" id="cam-error-text">Veuillez autoriser l'accès à la caméra pour scanner.</p>
+                    <button onclick="startCamera()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full font-medium transition">Réessayer</button>
                 </div>
             </div>
 
@@ -326,7 +373,7 @@
 <script>
     /**
      * ====================================================================
-     * LOGIQUE GÉNÉRATEUR
+     * LOGIQUE GÉNÉRATEUR (Inchangé)
      * ====================================================================
      */
     const textInput = document.getElementById('textInput');
@@ -356,20 +403,15 @@
         }
 
         try {
-            // Utilisation de TypeNumber 0 (Auto) et Correction 'L' pour max capacité
             const typeNumber = 0;
             const errorCorrectionLevel = 'L';
             const qr = qrcode(typeNumber, errorCorrectionLevel);
-            
-            // Support UTF-8 robuste
             qr.addData(text);
             qr.make();
             
-            // Création de l'image
-            const imgHtml = qr.createImgTag(6, 4); // Cell size 6, Margin 4
+            const imgHtml = qr.createImgTag(6, 4);
             qrDisplay.innerHTML = imgHtml;
             
-            // Ajout style Tailwind aux images générées
             const img = qrDisplay.querySelector('img');
             if(img) {
                 img.style.maxWidth = "100%";
@@ -379,7 +421,6 @@
 
             expandBtn.classList.remove('hidden');
 
-            // Setup Fullscreen
             expandBtn.onclick = () => {
                 document.getElementById('fs-img').src = img.src;
                 document.getElementById('fs-overlay').style.display = 'flex';
@@ -391,7 +432,6 @@
         }
     }
 
-    // Téléchargement
     window.downloadQR = (fmt) => {
         const img = qrDisplay.querySelector('img');
         if (!img) return showToast('Rien à télécharger');
@@ -405,7 +445,6 @@
         if (fmt === 'pdf') {
             const { jsPDF } = window.jspdf;
             const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-            // Centrer sur A4
             const imgProps = pdf.getImageProperties(canvas.toDataURL('image/png'));
             const pdfWidth = pdf.internal.pageSize.getWidth();
             const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
@@ -422,16 +461,22 @@
 
     /**
      * ====================================================================
-     * LOGIQUE SCANNER (ULTIMATE FIX - FULL FIELD OF VIEW)
+     * LOGIQUE SCANNER FLUIDE (Inspiré de SajiloQR / script.js)
      * ====================================================================
      */
-    let html5QrCode;
     let isScanning = false;
-    let currentMode = 'file'; // DÉFAUT : FICHIER
+    let currentMode = 'file';
+    let videoStream = null;
+    let animationFrameId = null;
+
+    // Éléments Scanner
+    const videoElement = document.getElementById('scanVideo');
+    const canvasElement = document.getElementById('scanCanvas');
+    const canvasCtx = canvasElement.getContext('2d');
+    const permissionMsg = document.getElementById('camera-permission-msg');
 
     function setScannerMode(mode) {
         currentMode = mode;
-        // UI
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.getElementById(`tab-${mode}`).classList.add('active');
         
@@ -446,57 +491,85 @@
     }
 
     async function startCamera() {
-        document.getElementById('camera-permission-msg').classList.add('hidden');
-        if (isScanning) return; // Déjà actif
-
-        // Nettoyage préalable
-        if(html5QrCode) {
-            try { await html5QrCode.stop(); } catch(e){}
-        }
-
-        html5QrCode = new Html5Qrcode("reader");
+        permissionMsg.classList.add('hidden');
         
-        // CONFIGURATION POUR SCAN PLEIN ÉCRAN
-        // On ne définit PAS de petite qrbox statique.
-        // On demande à scanner presque tout le viewfinder.
-        const config = { 
-            fps: 15, // Un peu plus rapide
-            qrbox: function(viewfinderWidth, viewfinderHeight) {
-                // On scanne 90% de la surface disponible
-                // Cela simule le comportement "Full Field of View"
-                return {
-                    width: Math.floor(viewfinderWidth * 0.90),
-                    height: Math.floor(viewfinderHeight * 0.90)
-                };
-            }
-        };
-        
+        // Si déjà actif, ne rien faire
+        if (isScanning && videoElement.srcObject) return;
+
         try {
-            await html5QrCode.start(
-                { facingMode: "environment" }, 
-                config, 
-                onScanSuccess, 
-                (errorMessage) => { /* ignore frame errors */ }
-            );
-            isScanning = true;
+            // Utilisation native getUserMedia pour fluidité max (comme dans script.js fourni)
+            videoStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: "environment" } 
+            });
+            
+            videoElement.srcObject = videoStream;
+            // Nécessaire pour iOS Safari
+            videoElement.setAttribute("playsinline", true); 
+            
+            videoElement.onloadedmetadata = () => {
+                videoElement.play();
+                isScanning = true;
+                // Lancer la boucle de détection fluide
+                requestAnimationFrame(scanLoop);
+            };
         } catch (err) {
             console.error("Erreur Caméra", err);
-            document.getElementById('camera-permission-msg').classList.remove('hidden');
+            permissionMsg.classList.remove('hidden');
+            document.getElementById('cam-error-text').innerText = "Accès caméra refusé ou impossible. Vérifiez les permissions.";
             isScanning = false;
         }
     }
 
-    async function stopCamera() {
-        if (html5QrCode && isScanning) {
-            try { await html5QrCode.stop(); } catch(e) {}
-            html5QrCode.clear();
-            isScanning = false;
+    function stopCamera() {
+        if (videoStream) {
+            videoStream.getTracks().forEach(track => track.stop());
+            videoStream = null;
+        }
+        videoElement.srcObject = null;
+        isScanning = false;
+        if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId);
         }
     }
 
-    function onScanSuccess(decodedText, decodedResult) {
-        // Nettoyage des données (fix pour certains scanners qui renvoient du JSON)
+    // Boucle de scan ultra-fluide (inspirée de script.js)
+    function scanLoop() {
+        if (!isScanning) return;
+
+        if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
+            // Ajuster la taille du canvas interne à la vidéo
+            canvasElement.width = videoElement.videoWidth;
+            canvasElement.height = videoElement.videoHeight;
+            
+            // Dessiner la frame actuelle
+            canvasCtx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+            
+            // Analyser l'image avec jsQR
+            const imageData = canvasCtx.getImageData(0, 0, canvasElement.width, canvasElement.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: "dontInvert",
+            });
+
+            if (code && code.data) {
+                // QR Trouvé !
+                onScanSuccess(code.data);
+                // On met pause le temps d'afficher le résultat
+                isScanning = false; 
+                // Optionnel : Arrêter la caméra ou juste mettre en pause la détection
+                // stopCamera(); 
+            }
+        }
+
+        // Continuer la boucle tant qu'on scanne
+        if (isScanning) {
+            animationFrameId = requestAnimationFrame(scanLoop);
+        }
+    }
+
+    function onScanSuccess(decodedText) {
         let cleanText = decodedText;
+        
+        // Nettoyage JSON basique si nécessaire
         if(decodedText.trim().startsWith('{') && decodedText.trim().endsWith('}')) {
             try {
                 const parsed = JSON.parse(decodedText);
@@ -506,9 +579,14 @@
         }
         
         showResult(cleanText);
+        
+        // Si on veut permettre de scanner à nouveau après avoir fermé le résultat :
+        // La fonction closeResult() relancera le scan.
     }
 
-    // Gestion Upload Fichier & Drag n Drop
+    /**
+     * LOGIQUE FICHIER (Garde l'existant + Html5Qrcode pour fichiers statiques qui est très bien)
+     */
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
 
@@ -527,7 +605,6 @@
     dropZone.addEventListener('drop', (e) => handleFile(e.dataTransfer.files[0]));
     fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
     
-    // Support Coller (Paste)
     document.addEventListener('paste', (e) => {
         if (currentMode !== 'file') return;
         const items = (e.clipboardData || e.originalEvent.clipboardData).items;
@@ -540,14 +617,12 @@
 
     function handleFile(file) {
         if(!file) return;
-        
-        // Méthode 1: html5-qrcode (rapide)
-        const tempScanner = new Html5Qrcode("reader");
+        // On utilise Html5Qrcode ici car il gère bien les fichiers statiques (drag/drop)
+        const tempScanner = new Html5Qrcode("reader"); 
         tempScanner.scanFile(file, true)
             .then(decodedText => onScanSuccess(decodedText))
             .catch(err => {
-                console.log("Fallback jsQR car html5-qrcode a échoué:", err);
-                // Méthode 2: Fallback jsQR (robuste)
+                // Fallback jsQR manuel
                 scanWithJsQR(file);
             });
     }
@@ -573,9 +648,7 @@
     }
 
     /**
-     * ====================================================================
-     * INTERFACE RÉSULTAT
-     * ====================================================================
+     * AFFICHAGE RÉSULTATS
      */
     function showResult(text) {
         const overlay = document.getElementById('resultOverlay');
@@ -583,7 +656,6 @@
         const btns = document.getElementById('actionButtons');
         
         content.textContent = text;
-        
         const isUrl = /^(http|https):\/\/[^ "]+$/.test(text);
         
         let btnHtml = `
@@ -606,10 +678,14 @@
 
     function closeResult() {
         document.getElementById('resultOverlay').classList.remove('visible');
+        // Relancer le scan si on est en mode caméra
+        if (currentMode === 'camera') {
+            isScanning = true;
+            requestAnimationFrame(scanLoop);
+        }
     }
 
     function copyToClipboard(text) {
-        // Fallback pour iframe/mobile
         const el = document.createElement('textarea');
         el.value = text;
         document.body.appendChild(el);
@@ -619,7 +695,6 @@
         showToast("Copié !");
     }
 
-    // Utilitaires
     function showToast(msg) {
         const toast = document.getElementById('toast');
         toast.textContent = msg;
@@ -627,10 +702,7 @@
         setTimeout(() => toast.style.opacity = '0', 3000);
     }
 
-    // Init - Démarrage en mode fichier par défaut, pas d'historique
-    window.addEventListener('load', () => {
-        // Rien de spécial au chargement, mode fichier est le HTML par défaut
-    });
+    window.addEventListener('load', () => {});
 
 </script>
 
