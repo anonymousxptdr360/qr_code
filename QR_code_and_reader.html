@@ -2,678 +2,637 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Suite QR : Générateur & Scanner Ultimate</title>
     
-    <!-- Scripts du Générateur -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Librairies QR (Générateur & Scanner) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    
-    <!-- Moteurs de Scan -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
 
+    <!-- Font Awesome pour les icônes -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
-        /* --- STYLE GLOBAL --- */
+        /* --- STYLE GLOBAL & CUSTOM --- */
         body {
-            margin: 0;
-            font-family: "Inter", sans-serif;
-            background-color: #e5e7eb;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: #f3f4f6;
+            height: 100vh;
+            overflow: hidden; /* Empêche le scroll global, on gère par panneau */
+        }
+
+        /* Layout Principal */
+        .app-container {
             display: flex;
             flex-direction: column;
-            width: 100%;
-        }
-
-        .separator {
-            background: #1f2937;
-            color: white;
-            padding: 15px;
-            text-align: center;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            z-index: 10;
-        }
-
-        /* --- STYLES GÉNÉRATEUR --- */
-        .generator-wrapper {
-            background-color: #f0f2f5;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 80vh;
-            padding: 20px;
-        }
-
-        .generator-container {
-            background-color: #ffffff;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 500px;
-            text-align: center;
-        }
-
-        #qrcode canvas, #qrcode img {
-            border-radius: 8px;
-            max-width: 100%;
-            height: auto;
-            image-rendering: pixelated; /* Netteté pour les gros QR */
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-
-        #fullscreenOverlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0;
-            width: 100vw; height: 100vh;
-            background: rgba(0,0,0,0.95);
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            cursor: zoom-out;
-        }
-
-        #fullscreenOverlay img {
-            max-width: 95vw;
-            max-height: 95vh;
-            object-fit: contain;
-            image-rendering: pixelated;
-        }
-
-        /* --- STYLES SCANNER --- */
-        .scanner-wrapper {
-            font-family: 'Segoe UI', sans-serif;
-            background-color: #f0f4fb;
-            display: flex;
-            flex-direction: column; /* Mobile first */
-            min-height: 100vh;
-            border-top: 1px solid #ccc;
+            height: 100%;
         }
 
         @media (min-width: 768px) {
-            .scanner-wrapper {
+            .app-container {
                 flex-direction: row;
-                height: 100vh;
-            }
-            .left-panel {
-                width: 350px;
-                height: 100%;
-                border-right: 1px solid #ddd;
-                border-bottom: none;
             }
         }
 
-        .left-panel {
-            background-color: #ffffff;
+        /* --- COLONNE GAUCHE : GÉNÉRATEUR --- */
+        .generator-panel {
+            flex: 1;
+            background: white;
             display: flex;
             flex-direction: column;
-            padding: 20px;
-            border-bottom: 1px solid #ddd;
+            border-bottom: 1px solid #e5e7eb;
+            overflow-y: auto;
         }
 
-        .tabs {
-            display: flex;
-            margin-bottom: 15px;
-            background: #e7ecf5;
-            border-radius: 8px;
-            padding: 4px;
+        @media (min-width: 768px) {
+            .generator-panel {
+                flex: 0 0 450px; /* Largeur fixe sur desktop */
+                border-right: 1px solid #e5e7eb;
+                border-bottom: none;
+                z-index: 10;
+                box-shadow: 4px 0 24px rgba(0,0,0,0.05);
+            }
         }
-        .tabs button {
+
+        /* --- COLONNE DROITE : SCANNER --- */
+        .scanner-panel {
             flex: 1;
-            padding: 10px;
-            border: none;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Onglets Scanner */
+        .scanner-tabs {
+            display: flex;
+            background: white;
+            padding: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            z-index: 20;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 0.75rem;
+            text-align: center;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            color: #64748b;
             cursor: pointer;
-            background-color: transparent;
-            border-radius: 6px;
-            font-weight: 500;
-            color: #666;
             transition: all 0.2s;
         }
-        .tabs button.active {
-            background-color: #fff;
-            color: #3390ff;
-            font-weight: bold;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        .tab-btn.active {
+            background: #eff6ff;
+            color: #2563eb;
         }
 
-        .drop-zone {
+        /* Zone Caméra / Fichier */
+        .scanner-viewport {
             flex: 1;
-            border: 2px dashed #ccc;
-            border-radius: 8px;
+            position: relative;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 20px;
-            text-align: center;
-            color: #666;
-            transition: background 0.3s;
-            position: relative;
-            min-height: 300px;
-            background: #fafafa;
-        }
-        .drop-zone.dragover {
-            background-color: #eef5ff;
-            border-color: #3390ff;
+            background: #000;
+            overflow: hidden;
         }
 
-        /* Scanner Caméra - Ajustements */
-        #camera-panel {
-            padding: 0;
-            overflow: hidden;
-            background: #000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-        }
+        /* Fix Caméra Plein Écran */
         #reader {
             width: 100%;
             height: 100%;
             position: relative;
         }
-        /* MODIF : On retire le 'object-fit: cover !important' qui causait le zoom.
-           On laisse la vidéo s'adapter naturellement. 
-        */
         #reader video {
-            /* object-fit: contain !important;  Par défaut HTML5-QRCODE gère bien ça */
-        }
-        
-        #camera-start-overlay {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: rgba(20, 20, 20, 0.9);
-            z-index: 20;
-            color: white;
-            text-align: center;
-            padding: 20px;
+            object-fit: cover !important;
+            width: 100% !important;
+            height: 100% !important;
         }
 
-        .right-panel {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 30px;
-            background: #ffffff;
-        }
-
-        .output-box {
+        /* Zone Drop Fichier */
+        .file-drop-zone {
             width: 100%;
-            max-width: 600px;
-            padding: 20px;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            background-color: #f9fafb;
-            min-height: 80px;
-            text-align: center;
-            word-break: break-word; /* Important pour les URL longues */
-            white-space: pre-wrap;
-            font-size: 1.1em;
-            color: #374151;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.03);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .output-box:hover {
-            background-color: #f3f4f6;
-            border-color: #d1d5db;
-        }
-
-        .output-box.url { border-left: 6px solid #10b981; } /* Vert */
-        .output-box.text { border-left: 6px solid #3b82f6; } /* Bleu */
-        .output-box.error { border-left: 6px solid #ef4444; color: #ef4444; } /* Rouge */
-
-        .controls {
-            margin-top: 20px;
+            height: 100%;
+            background: #f8fafc;
             display: flex;
-            flex-wrap: wrap;
+            flex-direction: column;
+            align-items: center;
             justify-content: center;
-            gap: 10px;
+            border: 3px dashed #cbd5e1;
+            margin: 1rem;
+            border-radius: 1rem;
+            color: #64748b;
+            transition: all 0.3s;
         }
-        .controls button {
-            padding: 10px 20px;
-            background: #3b82f6;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: background 0.2s;
+        .file-drop-zone.dragover {
+            background: #eff6ff;
+            border-color: #3b82f6;
+            color: #3b82f6;
         }
-        .controls button:hover { background: #2563eb; }
-        .controls button.secondary { background: #6b7280; }
-        
-        #copied-message {
-            height: 24px;
-            margin-top: 10px;
-            font-weight: bold;
-            color: #10b981;
-            transition: opacity 0.3s;
+
+        /* --- RÉSULTAT SCAN (Flottant) --- */
+        .scan-result-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-top-left-radius: 1.5rem;
+            border-top-right-radius: 1.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+            transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 50;
         }
+        .scan-result-overlay.visible {
+            transform: translateY(0);
+        }
+
+        /* --- QR DISPLAY --- */
+        #qrcode-display canvas, #qrcode-display img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            image-rendering: pixelated; /* Netteté */
+        }
+
+        /* --- FULLSCREEN OVERLAY --- */
+        #fs-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.95);
+            z-index: 9999;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            cursor: zoom-out;
+        }
+        #fs-overlay img {
+            width: 90vw;
+            height: 90vh;
+            object-fit: contain;
+            image-rendering: pixelated;
+        }
+
     </style>
 </head>
 <body>
 
+<div class="app-container">
+    
     <!-- ========================================== -->
-    <!-- PARTIE 1 : GÉNÉRATEUR                      -->
+    <!-- PANNEAU GAUCHE : GÉNÉRATEUR -->
     <!-- ========================================== -->
-    <div class="generator-wrapper">
-        <div class="generator-container">
-            <h1 class="text-3xl font-bold text-gray-800 mb-2">Générateur QR</h1>
-            <p class="text-gray-500 text-sm mb-6">Créez des codes robustes (jusqu'à 2953 chars)</p>
-            
-            <textarea id="textInput" placeholder="Entrez votre texte ou URL ici..." class="w-full p-4 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 outline-none transition" rows="4"></textarea>
-            
-            <div class="flex justify-between mb-6">
-                <button id="resetBtn" class="text-red-500 hover:bg-red-50 px-3 py-1 rounded text-sm font-semibold transition">🗑️ Effacer</button>
-                <span class="text-xs text-gray-400 self-center" id="charCount">0 car.</span>
-            </div>
+    <div class="generator-panel p-6">
+        <header class="mb-6">
+            <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                <i class="fa-solid fa-qrcode text-blue-600"></i> Suite QR <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">Ultimate</span>
+            </h1>
+            <p class="text-sm text-gray-500 mt-1">Générateur haute densité & Scanner universel</p>
+        </header>
 
-            <div id="qrcode" class="flex flex-col justify-center items-center p-4 bg-gray-50 border border-gray-200 rounded-lg mb-4 min-h-[250px]">
-                <p class="text-gray-400 italic">Le QR Code s'affichera ici</p>
+        <!-- Zone Input -->
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Contenu à encoder</label>
+            <textarea id="textInput" rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition resize-none" placeholder="URL, Texte, Wi-Fi..."></textarea>
+            <div class="flex justify-between items-center mt-2 text-xs text-gray-500">
+                <span id="charCount">0 caractères</span>
+                <button id="clearBtn" class="text-red-500 hover:text-red-700 font-medium hover:underline">Effacer</button>
             </div>
-
-            <button id="expandBtn" class="hidden w-full bg-gray-800 hover:bg-black text-white py-2 rounded-lg mb-4 transition shadow-lg">🔍 Voir en Plein Écran</button>
-            
-            <div class="download-buttons grid grid-cols-3 gap-2">
-                <button id="downloadPng" class="bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium transition">PNG</button>
-                <button id="downloadJpeg" class="bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium transition">JPEG</button>
-                <button id="downloadPdf" class="bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium transition">PDF</button>
-            </div>
-            
-            <div id="messageBox" class="mt-4 text-sm font-medium hidden"></div>
         </div>
-    </div>
 
-    <div id="fullscreenOverlay">
-        <img id="fullscreenImage" src="" alt="Full Screen QR">
-    </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const textInput = document.getElementById('textInput');
-            const qrcodeDiv = document.getElementById('qrcode');
-            const messageBox = document.getElementById('messageBox');
-            const expandBtn = document.getElementById('expandBtn');
-            const charCount = document.getElementById('charCount');
-
-            // Feedback visuel
-            function showMessage(msg, isError = false) {
-                messageBox.textContent = msg;
-                messageBox.className = `mt-4 text-sm font-medium p-2 rounded ${isError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
-                messageBox.style.display = 'block';
-                setTimeout(() => messageBox.style.display = 'none', 3000);
-            }
-
-            function generateQrCode() {
-                const text = textInput.value.trim();
-                charCount.textContent = text.length + " car.";
-                qrcodeDiv.innerHTML = '';
-                expandBtn.classList.add('hidden');
-
-                if (!text) {
-                    qrcodeDiv.innerHTML = '<p class="text-gray-400 italic">Le QR Code s\'affichera ici</p>';
-                    return;
-                }
-
-                try {
-                    // Utilisation de TypeNumber 0 (Auto) et Correction 'L' (Low) 
-                    // C'est la seule combinaison qui permet d'atteindre ~2900 caractères de manière stable.
-                    // 'M' ou 'Q' sont trop lourds pour 2953 caractères.
-                    const qr = qrcode(0, 'L'); 
-                    qr.addData(unescape(encodeURIComponent(text))); // Support UTF-8
-                    qr.make();
-                    
-                    // Génération d'une image assez grande (module size 8) pour être nette
-                    const qrImg = qr.createImgTag(8, 4); 
-                    qrcodeDiv.innerHTML = qrImg;
-                    expandBtn.classList.remove('hidden');
-                } catch (err) {
-                    console.error(err);
-                    qrcodeDiv.innerHTML = '<p class="text-red-500">Texte trop long pour un QR code standard !</p>';
-                }
-            }
-
-            // Listeners
-            textInput.addEventListener('input', generateQrCode);
-            
-            document.getElementById('resetBtn').addEventListener('click', () => {
-                textInput.value = '';
-                generateQrCode();
-            });
-
-            expandBtn.addEventListener('click', () => {
-                const img = qrcodeDiv.querySelector('img');
-                if (img) {
-                    document.getElementById('fullscreenImage').src = img.src;
-                    document.getElementById('fullscreenOverlay').style.display = 'flex';
-                }
-            });
-
-            document.getElementById('fullscreenOverlay').addEventListener('click', () => {
-                document.getElementById('fullscreenOverlay').style.display = 'none';
-            });
-
-            // Fonctions de téléchargement (Canvas Helper)
-            function downloadQR(format) {
-                const img = qrcodeDiv.querySelector('img');
-                if (!img) return showMessage("Rien à télécharger", true);
-
-                const canvas = document.createElement('canvas');
-                canvas.width = img.naturalWidth;
-                canvas.height = img.naturalHeight;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0);
-
-                if (format === 'pdf') {
-                    const { jsPDF } = window.jspdf;
-                    const pdf = new jsPDF();
-                    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, 10, 100, 100);
-                    pdf.save('qrcode.pdf');
-                } else {
-                    const link = document.createElement('a');
-                    link.download = `qrcode.${format}`;
-                    link.href = canvas.toDataURL(`image/${format}`);
-                    link.click();
-                }
-                showMessage(`Téléchargé en ${format.toUpperCase()}`);
-            }
-
-            document.getElementById('downloadPng').onclick = () => downloadQR('png');
-            document.getElementById('downloadJpeg').onclick = () => downloadQR('jpeg');
-            document.getElementById('downloadPdf').onclick = () => downloadQR('pdf');
-        });
-    </script>
-
-    <div class="separator">▼ SCANNER INTELLIGENT ▼</div>
-
-    <!-- ========================================== -->
-    <!-- PARTIE 2 : SCANNER                         -->
-    <!-- ========================================== -->
-    <div class="scanner-wrapper">
-        <div class="left-panel">
-            <div class="tabs">
-                <button class="active" onclick="switchTab('file')">📁 Fichier</button>
-                <button onclick="switchTab('camera')">📷 Caméra</button>
-            </div>
-            
-            <!-- Zone Upload -->
-            <div id="file-panel" class="drop-zone" ondragover="this.classList.add('dragover'); return false;" ondragleave="this.classList.remove('dragover')" ondrop="handleDrop(event)">
-                <div style="font-size: 3rem; margin-bottom: 1rem;">📤</div>
-                <p class="mb-4">Glissez une image ici<br>ou collez (Ctrl+V)</p>
-                <input type="file" id="fileInput" accept="image/*" hidden onchange="handleFile(this.files[0])">
-                <button onclick="document.getElementById('fileInput').click()" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">Choisir un fichier</button>
-            </div>
-
-            <!-- Zone Caméra -->
-            <div id="camera-panel" class="drop-zone" style="display:none; padding:0; background:black;">
-                <div id="reader"></div>
-                <!-- Overlay Fallback -->
-                <div id="camera-start-overlay" style="display:none;">
-                    <p class="mb-4">Caméra inactive ou accès refusé</p>
-                    <button onclick="initCamera()" class="bg-blue-600 text-white px-4 py-2 rounded">Réessayer</button>
+        <!-- Zone QR Affichage -->
+        <div class="flex-1 flex flex-col items-center justify-center min-h-[200px] bg-gray-50 rounded-xl border border-dashed border-gray-300 mb-6 relative group" id="qrcode-container">
+            <div id="qrcode-display" class="p-2 bg-white rounded-lg shadow-sm">
+                <!-- Le QR code sera injecté ici -->
+                <div class="text-gray-400 text-center p-4">
+                    <i class="fa-regular fa-image text-3xl mb-2"></i><br>Le QR apparaîtra ici
                 </div>
             </div>
+            
+            <!-- Bouton Fullscreen (visible au survol/génération) -->
+            <button id="expandBtn" class="hidden absolute top-2 right-2 bg-gray-800 text-white p-2 rounded-lg shadow-lg hover:bg-black transition">
+                <i class="fa-solid fa-expand"></i>
+            </button>
         </div>
 
-        <div class="right-panel">
-            <img id="previewImg" style="max-width:200px; max-height:200px; display:none; border:1px solid #ddd; margin-bottom:20px; border-radius:8px;">
-            
-            <div class="text-xs text-gray-500 mb-2 uppercase tracking-wide">Résultat du scan :</div>
-            <div id="scanResult" class="output-box" onclick="copyResult()">En attente de scan...</div>
-            
-            <div id="actionControls" class="controls"></div>
-            <div id="copied-message"></div>
+        <!-- Boutons d'action -->
+        <div class="grid grid-cols-3 gap-3 mb-6">
+            <button onclick="downloadQR('png')" class="flex items-center justify-center gap-2 py-2 px-4 bg-white border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 text-gray-700 transition shadow-sm">
+                <i class="fa-regular fa-file-image"></i> PNG
+            </button>
+            <button onclick="downloadQR('jpeg')" class="flex items-center justify-center gap-2 py-2 px-4 bg-white border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 text-gray-700 transition shadow-sm">
+                <i class="fa-regular fa-file-image"></i> JPG
+            </button>
+            <button onclick="downloadQR('pdf')" class="flex items-center justify-center gap-2 py-2 px-4 bg-white border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 text-gray-700 transition shadow-sm">
+                <i class="fa-regular fa-file-pdf"></i> PDF
+            </button>
         </div>
+        
+        <!-- Historique supprimé -->
     </div>
 
-    <!-- SCRIPT SCANNER -->
-    <script>
-        let html5QrCode;
-        let lastResultText = "";
+    <!-- ========================================== -->
+    <!-- PANNEAU DROITE : SCANNER -->
+    <!-- ========================================== -->
+    <div class="scanner-panel">
+        
+        <!-- Onglets (Ordre inversé : Fichier d'abord) -->
+        <div class="scanner-tabs">
+            <div class="tab-btn active" onclick="setScannerMode('file')" id="tab-file">
+                <i class="fa-solid fa-file-import mr-2"></i>Fichier
+            </div>
+            <div class="tab-btn" onclick="setScannerMode('camera')" id="tab-camera">
+                <i class="fa-solid fa-camera mr-2"></i>Caméra
+            </div>
+        </div>
 
-        // --- GESTION DES ONGLETS & CAMÉRA AUTO ---
-        async function switchTab(mode) {
-            // UI Update
-            document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
-            document.querySelector(`.tabs button[onclick*='${mode}']`).classList.add('active');
+        <!-- Viewport Scanner -->
+        <div class="scanner-viewport">
             
-            document.getElementById('file-panel').style.display = mode === 'file' ? 'flex' : 'none';
-            const camPanel = document.getElementById('camera-panel');
-            camPanel.style.display = mode === 'camera' ? 'flex' : 'none';
+            <!-- Mode Caméra -->
+            <div id="camera-view" class="w-full h-full relative hidden">
+                <div id="reader"></div>
+                <!-- PAS D'OVERLAY VISUEL RESTRICTIF ICI -->
+                
+                <!-- Message Permission -->
+                <div id="camera-permission-msg" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-white p-6 text-center hidden z-50">
+                    <i class="fa-solid fa-video-slash text-4xl mb-4 text-gray-500"></i>
+                    <h3 class="font-bold text-lg mb-2">Caméra inactive</h3>
+                    <p class="text-sm text-gray-400 mb-4">Veuillez autoriser l'accès à la caméra pour scanner.</p>
+                    <button onclick="startCamera()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full font-medium transition">Activer la caméra</button>
+                </div>
+            </div>
 
-            if (mode === 'camera') {
-                // Attendre que le div soit visible (display: flex) avant d'initialiser
-                // C'est CRUCIAL pour que html5-qrcode trouve les dimensions
-                setTimeout(() => {
-                    initCamera();
-                }, 100); 
-            } else {
-                stopCamera();
-            }
+            <!-- Mode Fichier (Visible par défaut) -->
+            <div id="file-view" class="w-full h-full p-4">
+                <div class="file-drop-zone" id="dropZone">
+                    <i class="fa-solid fa-cloud-arrow-up text-5xl mb-4 text-blue-200"></i>
+                    <p class="font-medium text-lg">Glissez une image ici</p>
+                    <p class="text-sm mt-1 mb-4">ou collez avec Ctrl+V</p>
+                    <button onclick="document.getElementById('fileInput').click()" class="bg-white border border-gray-300 text-gray-700 px-6 py-2 rounded-full font-medium hover:bg-gray-50 transition shadow-sm">
+                        Choisir un fichier
+                    </button>
+                    <input type="file" id="fileInput" accept="image/*" hidden>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Résultat Overlay -->
+        <div id="resultOverlay" class="scan-result-overlay">
+            <div class="flex justify-between items-start mb-3">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
+                        <i class="fa-solid fa-check"></i>
+                    </div>
+                    <span class="font-bold text-gray-800">QR Détecté</span>
+                </div>
+                <button onclick="closeResult()" class="text-gray-400 hover:text-gray-600 p-1">
+                    <i class="fa-solid fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4 break-all max-h-32 overflow-y-auto font-mono text-sm text-gray-700" id="scanContent">
+                ...
+            </div>
+
+            <div class="grid grid-cols-2 gap-3" id="actionButtons">
+                <!-- Boutons injectés dynamiquement -->
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Overlay Plein Écran pour Générateur -->
+<div id="fs-overlay" onclick="this.style.display='none'">
+    <img id="fs-img" src="" alt="Full Screen QR">
+</div>
+
+<!-- Notification Toast -->
+<div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full shadow-lg text-sm font-medium opacity-0 transition-opacity pointer-events-none z-[10000]">
+    Message ici
+</div>
+
+<script>
+    /**
+     * ====================================================================
+     * LOGIQUE GÉNÉRATEUR
+     * ====================================================================
+     */
+    const textInput = document.getElementById('textInput');
+    const qrDisplay = document.getElementById('qrcode-display');
+    const charCount = document.getElementById('charCount');
+    const expandBtn = document.getElementById('expandBtn');
+    
+    let qrInstance = null;
+
+    textInput.addEventListener('input', () => {
+        const text = textInput.value;
+        charCount.textContent = `${text.length} caractères`;
+        generate(text);
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', () => {
+        textInput.value = '';
+        charCount.textContent = '0 caractères';
+        generate('');
+    });
+
+    function generate(text) {
+        if (!text.trim()) {
+            qrDisplay.innerHTML = `<div class="text-gray-400 text-center p-4"><i class="fa-regular fa-image text-3xl mb-2"></i><br>Le QR apparaîtra ici</div>`;
+            expandBtn.classList.add('hidden');
+            return;
         }
 
-        // --- LOGIQUE CAMÉRA ROBUSTE ---
-        async function stopCamera() {
-            if (html5QrCode && html5QrCode.isScanning) {
-                try { await html5QrCode.stop(); } catch(e) {}
-                html5QrCode.clear();
-            }
-        }
-
-        async function initCamera() {
-            const overlay = document.getElementById('camera-start-overlay');
-            overlay.style.display = 'none'; // Cacher l'erreur précédente
-
-            // Nettoyage préventif
-            await stopCamera();
-
-            // Initialisation
-            html5QrCode = new Html5Qrcode("reader");
+        try {
+            // Utilisation de TypeNumber 0 (Auto) et Correction 'L' pour max capacité
+            const typeNumber = 0;
+            const errorCorrectionLevel = 'L';
+            const qr = qrcode(typeNumber, errorCorrectionLevel);
             
-            // MODIF : Configuration pour maximiser la zone de scan et enlever le zoom
-            const config = { 
-                fps: 10, 
-                // Zone de scan dynamique : 85% de la plus petite dimension
-                // Cela rend la zone de scan immense, donc "pas d'encadré" visible pratiquement
-                qrbox: function(viewfinderWidth, viewfinderHeight) {
-                    const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-                    const edge = Math.floor(minEdge * 0.85);
-                    return { width: edge, height: edge };
-                },
-                // On enlève aspectRatio: 1.0 pour laisser la vidéo prendre son ratio naturel
-                // aspectRatio: 1.0 
+            // Support UTF-8 robuste
+            qr.addData(text);
+            qr.make();
+            
+            // Création de l'image
+            const imgHtml = qr.createImgTag(6, 4); // Cell size 6, Margin 4
+            qrDisplay.innerHTML = imgHtml;
+            
+            // Ajout style Tailwind aux images générées
+            const img = qrDisplay.querySelector('img');
+            if(img) {
+                img.style.maxWidth = "100%";
+                img.style.height = "auto";
+                img.style.borderRadius = "8px";
+            }
+
+            expandBtn.classList.remove('hidden');
+
+            // Setup Fullscreen
+            expandBtn.onclick = () => {
+                document.getElementById('fs-img').src = img.src;
+                document.getElementById('fs-overlay').style.display = 'flex';
             };
 
-            try {
-                // MODIF : Retour à une configuration simple et compatible
-                const constraints = { 
-                    facingMode: "environment"
+        } catch (e) {
+            console.error(e);
+            qrDisplay.innerHTML = `<p class="text-red-500 text-sm text-center">Texte trop long pour ce format !</p>`;
+        }
+    }
+
+    // Téléchargement
+    window.downloadQR = (fmt) => {
+        const img = qrDisplay.querySelector('img');
+        if (!img) return showToast('Rien à télécharger');
+
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+
+        if (fmt === 'pdf') {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+            // Centrer sur A4
+            const imgProps = pdf.getImageProperties(canvas.toDataURL('image/png'));
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+            pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 10, pdfWidth, pdfHeight);
+            pdf.save('qrcode.pdf');
+        } else {
+            const link = document.createElement('a');
+            link.download = `qrcode.${fmt}`;
+            link.href = canvas.toDataURL(`image/${fmt}`);
+            link.click();
+        }
+        showToast(`Téléchargé en ${fmt.toUpperCase()}`);
+    };
+
+    /**
+     * ====================================================================
+     * LOGIQUE SCANNER (ULTIMATE FIX - FULL FIELD OF VIEW)
+     * ====================================================================
+     */
+    let html5QrCode;
+    let isScanning = false;
+    let currentMode = 'file'; // DÉFAUT : FICHIER
+
+    function setScannerMode(mode) {
+        currentMode = mode;
+        // UI
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(`tab-${mode}`).classList.add('active');
+        
+        document.getElementById('camera-view').classList.toggle('hidden', mode !== 'camera');
+        document.getElementById('file-view').classList.toggle('hidden', mode !== 'file');
+
+        if (mode === 'camera') {
+            startCamera();
+        } else {
+            stopCamera();
+        }
+    }
+
+    async function startCamera() {
+        document.getElementById('camera-permission-msg').classList.add('hidden');
+        if (isScanning) return; // Déjà actif
+
+        // Nettoyage préalable
+        if(html5QrCode) {
+            try { await html5QrCode.stop(); } catch(e){}
+        }
+
+        html5QrCode = new Html5Qrcode("reader");
+        
+        // CONFIGURATION POUR SCAN PLEIN ÉCRAN
+        // On ne définit PAS de petite qrbox statique.
+        // On demande à scanner presque tout le viewfinder.
+        const config = { 
+            fps: 15, // Un peu plus rapide
+            qrbox: function(viewfinderWidth, viewfinderHeight) {
+                // On scanne 90% de la surface disponible
+                // Cela simule le comportement "Full Field of View"
+                return {
+                    width: Math.floor(viewfinderWidth * 0.90),
+                    height: Math.floor(viewfinderHeight * 0.90)
                 };
-
-                await html5QrCode.start(
-                    constraints, 
-                    config, 
-                    (decodedText) => {
-                        processScanResult(decodedText);
-                        // Optionnel : ne pas arrêter la caméra pour scanner en continu
-                        // stopCamera(); 
-                    },
-                    (errorMessage) => { 
-                        // Ignorer les erreurs de scan frame par frame (trop verbeux)
-                    }
-                );
-            } catch (err) {
-                console.error("Erreur Caméra:", err);
-                overlay.style.display = 'flex'; // Afficher le bouton réessayer
-                document.getElementById('scanResult').innerText = "Erreur: Impossible d'accéder à la caméra.\nVérifiez vos permissions.";
-                document.getElementById('scanResult').className = "output-box error";
             }
+        };
+        
+        try {
+            await html5QrCode.start(
+                { facingMode: "environment" }, 
+                config, 
+                onScanSuccess, 
+                (errorMessage) => { /* ignore frame errors */ }
+            );
+            isScanning = true;
+        } catch (err) {
+            console.error("Erreur Caméra", err);
+            document.getElementById('camera-permission-msg').classList.remove('hidden');
+            isScanning = false;
         }
+    }
 
-        // --- GESTION FICHIERS & PASTE ---
-        document.addEventListener('paste', (event) => {
-            const items = (event.clipboardData || event.originalEvent.clipboardData).items;
-            for (let item of items) {
-                if (item.kind === 'file') {
-                    const blob = item.getAsFile();
-                    handleFile(blob);
-                }
-            }
-        });
-
-        function handleDrop(e) {
-            e.preventDefault();
-            e.target.classList.remove('dragover');
-            if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    async function stopCamera() {
+        if (html5QrCode && isScanning) {
+            try { await html5QrCode.stop(); } catch(e) {}
+            html5QrCode.clear();
+            isScanning = false;
         }
+    }
 
-        function handleFile(file) {
-            if (!file) return;
-
-            // Aperçu
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const img = document.getElementById('previewImg');
-                img.src = e.target.result;
-                img.style.display = 'block';
-                scanImageFile(file);
-            };
-            reader.readAsDataURL(file);
-        }
-
-        async function scanImageFile(file) {
-            document.getElementById('scanResult').innerText = "Analyse en cours...";
-            
-            const tempScanner = new Html5Qrcode("reader"); // Instance temporaire (hack pour file scan)
+    function onScanSuccess(decodedText, decodedResult) {
+        // Nettoyage des données (fix pour certains scanners qui renvoient du JSON)
+        let cleanText = decodedText;
+        if(decodedText.trim().startsWith('{') && decodedText.trim().endsWith('}')) {
             try {
-                const result = await tempScanner.scanFile(file, true);
-                processScanResult(result);
-            } catch (err) {
-                // Fallback JSQR si html5-qrcode échoue
-                fallbackScan(file);
+                const parsed = JSON.parse(decodedText);
+                if(parsed.text) cleanText = parsed.text;
+                else if(parsed.url) cleanText = parsed.url;
+            } catch(e) {}
+        }
+        
+        showResult(cleanText);
+    }
+
+    // Gestion Upload Fichier & Drag n Drop
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+    function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+    });
+
+    dropZone.addEventListener('drop', (e) => handleFile(e.dataTransfer.files[0]));
+    fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+    
+    // Support Coller (Paste)
+    document.addEventListener('paste', (e) => {
+        if (currentMode !== 'file') return;
+        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (let item of items) {
+            if (item.kind === 'file') {
+                handleFile(item.getAsFile());
             }
         }
+    });
 
-        function fallbackScan(file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const img = new Image();
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    ctx.drawImage(img, 0, 0);
-                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                    const code = jsQR(imageData.data, canvas.width, canvas.height);
-                    
-                    if (code) processScanResult(code.data);
-                    else {
-                        document.getElementById('scanResult').innerText = "Aucun QR Code détecté.";
-                        document.getElementById('scanResult').className = "output-box error";
-                        document.getElementById('actionControls').innerHTML = "";
-                    }
-                };
-                img.src = e.target.result;
+    function handleFile(file) {
+        if(!file) return;
+        
+        // Méthode 1: html5-qrcode (rapide)
+        const tempScanner = new Html5Qrcode("reader");
+        tempScanner.scanFile(file, true)
+            .then(decodedText => onScanSuccess(decodedText))
+            .catch(err => {
+                console.log("Fallback jsQR car html5-qrcode a échoué:", err);
+                // Méthode 2: Fallback jsQR (robuste)
+                scanWithJsQR(file);
+            });
+    }
+
+    function scanWithJsQR(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, canvas.width, canvas.height);
+                if (code) onScanSuccess(code.data);
+                else showToast("Aucun QR code détecté");
             };
-            reader.readAsDataURL(file);
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    /**
+     * ====================================================================
+     * INTERFACE RÉSULTAT
+     * ====================================================================
+     */
+    function showResult(text) {
+        const overlay = document.getElementById('resultOverlay');
+        const content = document.getElementById('scanContent');
+        const btns = document.getElementById('actionButtons');
+        
+        content.textContent = text;
+        
+        const isUrl = /^(http|https):\/\/[^ "]+$/.test(text);
+        
+        let btnHtml = `
+            <button onclick="copyToClipboard('${text.replace(/'/g, "\\'")}')" class="col-span-${isUrl ? '1' : '2'} bg-white border border-gray-300 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-50">
+                <i class="fa-regular fa-copy mr-2"></i>Copier
+            </button>
+        `;
+        
+        if(isUrl) {
+            btnHtml += `
+                <button onclick="window.open('${text}', '_blank')" class="bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700">
+                    <i class="fa-solid fa-external-link-alt mr-2"></i>Ouvrir
+                </button>
+            `;
         }
+        
+        btns.innerHTML = btnHtml;
+        overlay.classList.add('visible');
+    }
 
-        // --- TRAITEMENT INTELLIGENT DES RÉSULTATS (Le coeur du fix) ---
-        function cleanScannedData(data) {
-            // FIX POUR CHROME DINOSAUR & GOOGLE FORMATS
-            // Si le résultat ressemble à {"text":"https://..."}
-            if (data.trim().startsWith('{') && data.trim().endsWith('}')) {
-                try {
-                    const parsed = JSON.parse(data);
-                    if (parsed.text) return parsed.text; // On extrait le vrai lien
-                    if (parsed.url) return parsed.url;
-                } catch (e) {
-                    // Ce n'est pas du JSON valide, on garde le texte brut
-                }
-            }
-            return data;
-        }
+    function closeResult() {
+        document.getElementById('resultOverlay').classList.remove('visible');
+    }
 
-        function processScanResult(decodedText) {
-            // Nettoyage de la donnée (ex: JSON Chrome)
-            const cleanText = cleanScannedData(decodedText);
-            lastResultText = cleanText;
+    function copyToClipboard(text) {
+        // Fallback pour iframe/mobile
+        const el = document.createElement('textarea');
+        el.value = text;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+        showToast("Copié !");
+    }
 
-            const resBox = document.getElementById('scanResult');
-            const controls = document.getElementById('actionControls');
-            
-            resBox.innerText = cleanText;
-            
-            // Détection URL
-            const isUrl = /^(http|https):\/\/[^ "]+$/.test(cleanText);
-            
-            if (isUrl) {
-                resBox.className = "output-box url";
-                controls.innerHTML = `
-                    <button onclick="window.open('${cleanText}', '_blank')">🌐 Ouvrir le lien</button>
-                    <button onclick="copyResult()" class="secondary">📋 Copier</button>
-                    <button onclick="copyResult(); setTimeout(() => window.open('${cleanText}', '_blank'), 300);" class="bg-green-600 hover:bg-green-700 text-white">🚀 Copier + Ouvrir</button>
-                `;
-            } else {
-                resBox.className = "output-box text";
-                controls.innerHTML = `
-                    <button onclick="copyResult()">📋 Copier le texte</button>
-                `;
-            }
-        }
+    // Utilitaires
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.style.opacity = '1';
+        setTimeout(() => toast.style.opacity = '0', 3000);
+    }
 
-        // --- COPIE ROBUSTE (Compatible Sandbox/Iframe) ---
-        function copyResult() {
-            if (!lastResultText) return;
+    // Init - Démarrage en mode fichier par défaut, pas d'historique
+    window.addEventListener('load', () => {
+        // Rien de spécial au chargement, mode fichier est le HTML par défaut
+    });
 
-            // On utilise document.execCommand('copy') car navigator.clipboard 
-            // est souvent bloqué dans les iframes sans permissions explicites.
-            const textArea = document.createElement("textarea");
-            textArea.value = lastResultText;
-            
-            // Positionnement hors écran pour ne pas gêner l'UI
-            textArea.style.position = "fixed";
-            textArea.style.left = "-9999px";
-            textArea.style.top = "0";
-            document.body.appendChild(textArea);
-            
-            textArea.focus();
-            textArea.select();
-            
-            try {
-                const successful = document.execCommand('copy');
-                if (successful) {
-                    showCopyFeedback();
-                } else {
-                    console.error('Copy command failed');
-                    // Fallback silencieux ou prompt si nécessaire, mais on garde le silence ici
-                }
-            } catch (err) {
-                console.error('Erreur copie', err);
-                alert("Impossible de copier automatiquement.");
-            }
-            
-            document.body.removeChild(textArea);
-        }
+</script>
 
-        function showCopyFeedback() {
-            const msg = document.getElementById('copied-message');
-            msg.innerText = "✅ Copié dans le presse-papier !";
-            msg.style.opacity = 1;
-            setTimeout(() => { msg.style.opacity = 0; }, 2000);
-        }
-    </script>
 </body>
 </html>
